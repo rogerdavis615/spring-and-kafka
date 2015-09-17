@@ -1,16 +1,17 @@
 package jc;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.DependsOn;
 import org.springframework.integration.IntegrationMessageHeaderAccessor;
 import org.springframework.integration.config.EnableIntegration;
 import org.springframework.integration.dsl.IntegrationFlow;
@@ -21,17 +22,13 @@ import org.springframework.integration.dsl.kafka.KafkaHighLevelConsumerMessageSo
 import org.springframework.integration.dsl.kafka.KafkaProducerMessageHandlerSpec;
 import org.springframework.integration.dsl.support.Consumer;
 import org.springframework.integration.kafka.support.ZookeeperConnect;
-import org.springframework.messaging.MessageChannel;
-import org.springframework.messaging.support.GenericMessage;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-import java.util.Map;
-
 /**
- * Demonstrates using the Spring Integration Apache Kafka Java Configuration DSL.
- * Thanks to Spring Integration ninja <a href="http://spring.io/team/artembilan">Artem Bilan</a>
- * for getting the Java Configuration DSL working so quickly!
+ * Demonstrates using the Spring Integration Apache Kafka Java Configuration
+ * DSL. Thanks to Spring Integration ninja
+ * <a href="http://spring.io/team/artembilan">Artem Bilan</a> for getting the
+ * Java Configuration DSL working so quickly!
  *
  * @author Josh Long
  */
@@ -39,127 +36,132 @@ import java.util.Map;
 @SpringBootApplication
 public class DemoApplication {
 
-    public static final String TEST_TOPIC_ID = "event-stream";
+	public static final String TEST_TOPIC_ID = "event-stream";
 
-    /**
-     * common values used in both the consumer and producer configuration classes.
-     * This is a poor-man's {@link org.springframework.boot.context.properties.ConfigurationProperties}!
-     */
-    @Component
-    public static class KafkaConfig {
+	// @Autowired
+	// LogMe logMe;
 
-        @Value("${kafka.topic:" + TEST_TOPIC_ID + "}")
-        private String topic;
+	/**
+	 * common values used in both the consumer and producer configuration
+	 * classes. This is a poor-man's
+	 * {@link org.springframework.boot.context.properties.ConfigurationProperties}
+	 * !
+	 */
+	@Component
+	public static class KafkaConfig {
 
-        @Value("${kafka.address:localhost:9092}")
-        private String brokerAddress;
+		@Value("${kafka.topic:" + TEST_TOPIC_ID + "}")
+		private String topic;
 
-        @Value("${zookeeper.address:localhost:2181}")
-        private String zookeeperAddress;
+		@Value("${kafka.address:localhost:9092}")
+		private String brokerAddress;
 
-        KafkaConfig() {
-        }
+		@Value("${zookeeper.address:localhost:2181}")
+		private String zookeeperAddress;
 
-        public KafkaConfig(String t, String b, String zk) {
-            this.topic = t;
-            this.brokerAddress = b;
-            this.zookeeperAddress = zk;
-        }
+		KafkaConfig() {
+		}
 
-        public String getTopic() {
-            return topic;
-        }
+		public KafkaConfig(String t, String b, String zk) {
+			this.topic = t;
+			this.brokerAddress = b;
+			this.zookeeperAddress = zk;
+		}
 
-        public String getBrokerAddress() {
-            return brokerAddress;
-        }
+		public String getTopic() {
+			return topic;
+		}
 
-        public String getZookeeperAddress() {
-            return zookeeperAddress;
-        }
-    }
+		public String getBrokerAddress() {
+			return brokerAddress;
+		}
 
-    @Configuration
-    public static class ProducerConfiguration {
+		public String getZookeeperAddress() {
+			return zookeeperAddress;
+		}
+	}
 
-        @Autowired
-        private KafkaConfig kafkaConfig;
+	@Configuration
+	public static class ProducerConfiguration {
 
-        private static final String OUTBOUND_ID = "outbound";
+		@Autowired
+		private KafkaConfig kafkaConfig;
 
-        private Log log = LogFactory.getLog(getClass());
+		private static final String OUTBOUND_ID = "outbound";
 
-        @Bean
-        @DependsOn(OUTBOUND_ID)
-        CommandLineRunner kickOff(@Qualifier(OUTBOUND_ID + ".input") MessageChannel in) {
-            return args -> {
-                for (int i = 0; i < 1000; i++) {
-                    in.send(new GenericMessage<>("#" + i));
-                    log.info("sending message #" + i);
-                }
-            };
-        }
+		private Log log = LogFactory.getLog(getClass());
 
+		// @Bean
+		// @DependsOn(OUTBOUND_ID)
+		// CommandLineRunner kickOff(@Qualifier(OUTBOUND_ID + ".input")
+		// MessageChannel in) {
+		// return args -> {
+		// for (int i = 0; i < 1000; i++) {
+		// in.send(new GenericMessage<>("#" + i));
+		// log.info("sending message #" + i);
+		// }
+		// };
+		// }
 
-        @Bean(name = OUTBOUND_ID)
-        IntegrationFlow producer() {
+		@Bean(name = OUTBOUND_ID)
+		IntegrationFlow producer() {
 
-            log.info("starting producer flow..");
+			log.info("starting producer flow..");
 
-            return flowDefinition -> {
-                Consumer<KafkaProducerMessageHandlerSpec.ProducerMetadataSpec> producerMetadataSpecConsumer =
-                        (KafkaProducerMessageHandlerSpec.ProducerMetadataSpec metadata) ->
-                                metadata.async(true)
-                                        .batchNumMessages(10)
-                                        .valueClassType(String.class)
-                                        .<String>valueEncoder(String::getBytes);
+			return flowDefinition -> {
+				Consumer<KafkaProducerMessageHandlerSpec.ProducerMetadataSpec> producerMetadataSpecConsumer = (
+						KafkaProducerMessageHandlerSpec.ProducerMetadataSpec metadata) -> metadata.async(true)
+								.batchNumMessages(10).valueClassType(String.class)
+								.<String> valueEncoder(String::getBytes);
 
-                KafkaProducerMessageHandlerSpec messageHandlerSpec =
-                        Kafka.outboundChannelAdapter(props -> props.put("queue.buffering.max.ms", "15000"))
-                                .messageKey(m -> m.getHeaders().get(IntegrationMessageHeaderAccessor.SEQUENCE_NUMBER))
-                                .addProducer(this.kafkaConfig.getTopic(), this.kafkaConfig.getBrokerAddress(), producerMetadataSpecConsumer);
-                flowDefinition
-                        .handle(messageHandlerSpec);
-            };
-        }
-    }
+				KafkaProducerMessageHandlerSpec messageHandlerSpec = Kafka
+						.outboundChannelAdapter(props -> props.put("queue.buffering.max.ms", "15000"))
+						.messageKey(m -> m.getHeaders().get(IntegrationMessageHeaderAccessor.SEQUENCE_NUMBER))
+						.addProducer(this.kafkaConfig.getTopic(), this.kafkaConfig.getBrokerAddress(),
+								producerMetadataSpecConsumer);
+				flowDefinition.handle(messageHandlerSpec);
+			};
+		}
+	}
 
-    @Configuration
-    public static class ConsumerConfiguration {
+	@Configuration
+	public static class ConsumerConfiguration {
 
-        @Autowired
-        private KafkaConfig kafkaConfig;
+		@Autowired
+		private KafkaConfig kafkaConfig;
 
-        private Log log = LogFactory.getLog(getClass());
+		private Log log = LogFactory.getLog(getClass());
 
-        @Bean
-        IntegrationFlow consumer() {
+		@Bean
+		IntegrationFlow consumer() {
 
-            log.info("starting consumer..");
+			log.info("starting consumer..");
 
-            KafkaHighLevelConsumerMessageSourceSpec messageSourceSpec = Kafka.inboundChannelAdapter(
-                    new ZookeeperConnect(this.kafkaConfig.getZookeeperAddress()))
-                    .consumerProperties(props ->
-                            props.put("auto.offset.reset", "smallest")
-                                    .put("auto.commit.interval.ms", "100"))
-                    .addConsumer("myGroup", metadata -> metadata.consumerTimeout(100)
-                            .topicStreamMap(m -> m.put(this.kafkaConfig.getTopic(), 1))
-                            .maxMessages(10)
-                            .valueDecoder(String::new));
+			KafkaHighLevelConsumerMessageSourceSpec messageSourceSpec = Kafka
+					.inboundChannelAdapter(new ZookeeperConnect(this.kafkaConfig.getZookeeperAddress()))
+					.consumerProperties(
+							props -> props.put("auto.offset.reset", "smallest").put("auto.commit.interval.ms", "100"))
+					.addConsumer("myGroup",
+							metadata -> metadata.consumerTimeout(100)
+									.topicStreamMap(m -> m.put(this.kafkaConfig.getTopic(), 1)).maxMessages(1000)
+									.valueDecoder(String::new));
 
-            Consumer<SourcePollingChannelAdapterSpec> endpointConfigurer = e -> e.poller(p -> p.fixedDelay(100));
+			Consumer<SourcePollingChannelAdapterSpec> endpointConfigurer = e -> e.poller(p -> p.fixedDelay(50));
 
-            return IntegrationFlows
-                    .from(messageSourceSpec, endpointConfigurer)
-                    .<Map<String, List<String>>>handle((payload, headers) -> {
-                        payload.entrySet().forEach(e -> log.info(e.getKey() + '=' + e.getValue()));
-                        return null;
-                    })
-                    .get();
-        }
-    }
+			return IntegrationFlows.from(messageSourceSpec, endpointConfigurer)
+					.<Map<String, List<String>>> handle((payload, headers) -> {
+						payload.entrySet().forEach(e -> {
+//							log.info(e.getKey() + '=' + e.getValue());
+							LogMe.logMe(e.getKey(), e.getValue());
+//							log.info(e.getKey() + '=' + e.getValue());
+						});
 
-    public static void main(String[] args) {
-        SpringApplication.run(DemoApplication.class, args);
-    }
+						return null;
+					}).get();
+		}
+	}
+
+	public static void main(String[] args) {
+		SpringApplication.run(DemoApplication.class, args);
+	}
 }

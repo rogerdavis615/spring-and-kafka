@@ -1,0 +1,31 @@
+apply plugin: 'java'
+apply plugin: 'maven'
+apply plugin: 'eclipse'
+
+group = 'org.test'
+version = '0.0.1-SNAPSHOT'
+
+description = """"""
+
+sourceCompatibility = 1.5
+targetCompatibility = 1.5
+
+
+
+repositories {
+
+     maven { url "http://repo.spring.io/simple/libs-milestone-local/" }
+     maven { url "http://repo.maven.apache.org/maven2" }
+}
+dependencies {
+    compile group: 'org.apache.kafka', name: 'kafka_2.10', version:'0.8.1.1'
+    compile group: 'org.springframework.boot', name: 'spring-boot-starter-integration', version:'1.2.3.RELEASE'
+    compile(group: 'org.springframework.boot', name: 'spring-boot-starter', version:'1.2.3.RELEASE') {
+exclude(module: 'commons-logging')
+    }
+    compile group: 'org.springframework.integration', name: 'spring-integration-kafka', version:'1.1.1.RELEASE'
+    compile group: 'org.springframework.integration', name: 'spring-integration-java-dsl', version:'1.1.0.M1'
+    testCompile(group: 'org.springframework.boot', name: 'spring-boot-starter-test', version:'1.2.3.RELEASE') {
+exclude(module: 'commons-logging')
+    }
+}
